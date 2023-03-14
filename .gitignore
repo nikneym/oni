@@ -1,0 +1,4 @@
+zig-cache/
+zig-out/
+oni.so
+main.lua

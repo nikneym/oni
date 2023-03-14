@@ -1,0 +1,6 @@
+[submodule "lib/ziglua"]
+	path = lib/ziglua
+	url = git@github.com:natecraddock/ziglua.git
+[submodule "lib/libxev"]
+	path = lib/libxev
+	url = git@github.com:mitchellh/libxev.git
