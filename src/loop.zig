@@ -28,7 +28,8 @@ pub fn suspends(vm: *Lua) i32 {
 //* oni.wait(milliseconds: number) -> [ err, nil ]
 //* 
 pub fn wait(vm: *Lua) i32 {
-    const ms = @intCast(usize, vm.checkInteger(1));
+    const ms_int = @max(0, vm.checkInteger(1));
+    const ms = @intCast(usize, ms_int);
 
     return oni.scheduleTimer(vm, ms) catch {
         vm.pushString("unable to schedule a timer");
