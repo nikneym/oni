@@ -1,6 +1,7 @@
 const std = @import("std");
 const lua = @import("ziglua");
 const global = @import("global.zig");
+const oni = @import("oni.zig");
 const Lua = lua.Lua;
 
 const Self = @This();
@@ -20,8 +21,19 @@ pub fn spawn(vm: *Lua) i32 {
 }
 
 pub fn suspends(vm: *Lua) i32 {
-    //global.push(vm.*) catch unreachable;
     return vm.yield(0);
+}
+
+//*
+//* oni.wait(milliseconds: number) -> [ err, nil ]
+//* 
+pub fn wait(vm: *Lua) i32 {
+    const ms = @intCast(usize, vm.checkInteger(1));
+
+    return oni.scheduleTimer(vm, ms) catch {
+        vm.pushString("unable to schedule a timer");
+        return 1;
+    };
 }
 
 // TODO: refactor runner

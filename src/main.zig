@@ -26,6 +26,9 @@ export fn luaopen_oni(state: ?*lua.LuaState) c_int {
     vm.pushString("run");
     vm.pushFunction(lua.wrap(loop.run));
     vm.rawSetTable(-3);
+    vm.pushString("wait");
+    vm.pushFunction(lua.wrap(loop.wait));
+    vm.rawSetTable(-3);
 
     // expose TCP utilities
     exportTcp(&vm);
