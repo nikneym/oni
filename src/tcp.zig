@@ -222,4 +222,83 @@ pub const Tcp = struct {
         _ = co.resumeThread(0) catch co.raiseError();
         return .disarm;
     }
+
+    /// Create a new TCP server that listens the specified address.
+    pub fn createTcpListener(co: *Lua, host: []const u8, port: u16) !c_int {
+        const addr = try net.Address.parseIp(host, port);
+        const fd = try xev.TCP.init(addr);
+
+        try fd.bind(addr);
+        // TODO: do not use hardcoded kernel backlog size
+        try fd.listen(128);
+
+        const tcp = co.newUserdata(Userdata);
+        tcp.* = .{
+            .fd = fd,
+            .reader = .{
+                .buffer = global.getBuffer() catch {
+                    co.pushNil();
+                    co.pushString("failed creating write buffer");
+                    return 2;
+                },
+            },
+        };
+        co.getMetatableRegistry("tcp");
+        co.setMetatable(-2);
+
+        return 1;
+    }
+
+    /// Schedules an accept event on TCP Listener.
+    pub fn scheduleAccept(co: *Lua, tcp: *Tcp.Userdata) !c_int {
+        const c = try global.getCompletion();
+
+        tcp.fd.accept(
+            global.defaultLoop(),
+            c,
+            LuaState,
+            co.state,
+            onAcceptFn,
+        );
+
+        return co.yield(0);
+    }
+
+    fn onAcceptFn(
+        state: ?*LuaState,
+        _: *xev.Loop,
+        c: *xev.Completion,
+        res: xev.TCP.AcceptError!xev.TCP,
+    ) xev.CallbackAction {
+        global.destroyCompletion(c);
+        var co = Lua{ .state = state.? };
+
+        const fd = res catch {
+            co.pushNil();
+            co.pushString("failed accepting incoming connection");
+            _ = co.resumeThread(2) catch co.raiseError();
+
+            return .disarm;
+        };
+
+        // create a new TCP object for accepted connection
+        const tcp = co.newUserdata(Userdata);
+        tcp.* = .{
+            .fd = fd,
+            .reader = .{
+                .buffer = global.getBuffer() catch {
+                    co.pushNil();
+                    co.pushString("failed creating write buffer");
+                    _ = co.resumeThread(2) catch co.raiseError();
+
+                    return .disarm;
+                },
+            },
+        };
+        co.getMetatableRegistry("tcp");
+        co.setMetatable(-2);
+
+        _ = co.resumeThread(1) catch co.raiseError();
+        return .disarm;
+    }
 };

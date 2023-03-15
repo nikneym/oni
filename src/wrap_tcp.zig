@@ -23,6 +23,35 @@ fn wrap_TcpConnect(vm: *Lua) i32 {
 }
 
 //*
+//* net.TcpListener(host: string, port: integer) -> [ TcpListener, nil ], [ err, nil ]
+//* 
+fn wrap_TcpListener(vm: *Lua) i32 {
+    const host = mem.span(vm.checkString(1));
+    const port = @intCast(u16, vm.checkInteger(2));
+
+    return Tcp.createTcpListener(vm, host, port) catch {
+        vm.pushNil();
+        vm.pushString("unable to create a TCP listener");
+        return 2;
+    };
+}
+
+//*
+//* tcp:accept() -> [ TcpConnection, nil ], [ err, nil ]
+//* 
+fn wrap_TcpAccept(vm: *Lua) i32 {
+    vm.checkType(1, .userdata);
+
+    const tcp = vm.toUserdata(Tcp.Userdata, 1) catch unreachable;
+
+    return Tcp.scheduleAccept(vm, tcp) catch {
+        vm.pushNil();
+        vm.pushString("failed scheduling accept event");
+        return 2;
+    };
+}
+
+//*
 //* tcp:read(length: number) -> [ string, nil ], [ err, nil ]
 //* 
 fn wrap_TcpRead(vm: *Lua) i32 {
@@ -84,6 +113,10 @@ pub fn exportTcp(vm: *Lua) void {
     vm.pushFunction(lua.wrap(wrap_TcpConnect));
     vm.rawSetTable(-3);
 
+    vm.pushString("TcpListener");
+    vm.pushFunction(lua.wrap(wrap_TcpListener));
+    vm.rawSetTable(-3);
+
     vm.rawSetTable(-3);
 }
 
@@ -98,6 +131,9 @@ pub fn exportTcpMt(vm: *Lua) void {
     vm.rawSetTable(-3);
     vm.pushString("close");
     vm.pushFunction(lua.wrap(wrap_TcpClose));
+    vm.rawSetTable(-3);
+    vm.pushString("accept");
+    vm.pushFunction(lua.wrap(wrap_TcpAccept));
     vm.rawSetTable(-3);
     vm.setField(-2, "__index");
     vm.pushFunction(lua.wrap(wrap_tostring));
