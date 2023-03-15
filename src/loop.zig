@@ -39,7 +39,7 @@ pub fn wait(vm: *Lua) i32 {
 // TODO: refactor runner
 pub fn run(vm: *Lua) i32 {
     _ = vm;
-    global.GLOBAL.loop.run(.until_done) catch std.debug.print("some error\n", .{});
+    global.defaultLoop().run(.until_done) catch std.debug.print("some error\n", .{});
 
     return 0;
 }
