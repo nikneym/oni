@@ -21,9 +21,9 @@ pub fn scheduleTimer(co: *Lua, ms: usize) !c_int {
     );
 
     // push the timer to onFireFn
-    const ptr = co.newUserdata(*const xev.Timer);
-    ptr.* = &timer;
-    return co.yield(1);
+    //const ptr = co.newUserdata(*const xev.Timer);
+    //ptr.* = &timer;
+    return co.yield(0);
 }
 
 // this timerFn just resumes the thread back
@@ -35,8 +35,8 @@ fn onTimerFireDefaultFn(
 ) xev.CallbackAction {
     global.destroyCompletion(c);
     var co = Lua{ .state = state.? };
-    const timer = co.toUserdata(*xev.Timer, 1) catch @panic("unable to receive timer from event");
-    timer.*.deinit();
+    //const timer = co.toUserdata(*xev.Timer, 1) catch @panic("unable to receive timer from event");
+    //timer.*.deinit();
 
     // TODO: proper error
     res catch |e| {
