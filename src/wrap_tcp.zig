@@ -1,21 +1,22 @@
 const std = @import("std");
 const mem = std.mem;
 const lua = @import("ziglua");
-const Tcp = @import("tcp.zig").Tcp;
+const tcp = @import("tcp.zig");
 const Lua = lua.Lua;
+const xev = @import("xev");
 
 //*
 //* net.TcpConnect(host: string, port: integer) -> [ TcpConnection, nil ], [ err, nil ]
-//* 
+//*
 // TODO: better error messages
-fn wrap_TcpConnect(vm: *Lua) i32 {
+fn wrap_TcpStream(vm: *Lua) i32 {
     vm.checkType(1, .string);
     vm.checkType(2, .number);
 
     const host: []const u8 = mem.span(vm.toString(1) catch unreachable);
     const port: u16 = @intCast(u16, vm.toInteger(2));
 
-    return Tcp.scheduleConnect(vm, host, port) catch {
+    return tcp.connect(vm, host, port) catch {
         vm.pushNil();
         vm.pushString("failed scheduling a connect event");
         return 2;
@@ -24,12 +25,12 @@ fn wrap_TcpConnect(vm: *Lua) i32 {
 
 //*
 //* net.TcpListener(host: string, port: integer) -> [ TcpListener, nil ], [ err, nil ]
-//* 
+//*
 fn wrap_TcpListener(vm: *Lua) i32 {
     const host = mem.span(vm.checkString(1));
     const port = @intCast(u16, vm.checkInteger(2));
 
-    return Tcp.createTcpListener(vm, host, port) catch {
+    return tcp.listen(vm, host, port) catch {
         vm.pushNil();
         vm.pushString("unable to create a TCP listener");
         return 2;
@@ -38,13 +39,13 @@ fn wrap_TcpListener(vm: *Lua) i32 {
 
 //*
 //* tcp:accept() -> [ TcpConnection, nil ], [ err, nil ]
-//* 
+//*
 fn wrap_TcpAccept(vm: *Lua) i32 {
     vm.checkType(1, .userdata);
 
-    const tcp = vm.toUserdata(Tcp.Userdata, 1) catch unreachable;
+    const ptr = vm.toUserdata(xev.TCP, 1) catch unreachable;
 
-    return Tcp.scheduleAccept(vm, tcp) catch {
+    return tcp.accept(vm, ptr.*) catch {
         vm.pushNil();
         vm.pushString("failed scheduling accept event");
         return 2;
@@ -53,15 +54,15 @@ fn wrap_TcpAccept(vm: *Lua) i32 {
 
 //*
 //* tcp:read(length: number) -> [ string, nil ], [ err, nil ]
-//* 
+//*
 fn wrap_TcpRead(vm: *Lua) i32 {
     vm.checkType(1, .userdata);
     vm.checkType(2, .number);
 
-    const tcp = vm.toUserdata(Tcp.Userdata, 1) catch unreachable;
+    const ptr = vm.toUserdata(xev.TCP, 1) catch unreachable;
     const len = @intCast(usize, vm.toInteger(2));
 
-    return Tcp.scheduleRead(vm, tcp, len) catch {
+    return tcp.read(vm, ptr.*, len) catch {
         vm.pushNil();
         vm.pushString("failed scheduling a read event");
         return 2;
@@ -69,31 +70,32 @@ fn wrap_TcpRead(vm: *Lua) i32 {
 }
 
 //*
-//* tcp:write(bytes: string) -> [ err, nil ]
-//* 
+//* tcp:write(bytes: string) -> [len, nil], [ err, nil ]
+//*
 // TODO: better error messages
 fn wrap_TcpWrite(vm: *Lua) i32 {
     vm.checkType(1, .userdata);
     vm.checkType(2, .string);
 
-    const tcp = vm.toUserdata(Tcp.Userdata, 1) catch unreachable;
+    const ptr = vm.toUserdata(xev.TCP, 1) catch unreachable;
     const bytes = vm.toBytes(2) catch unreachable;
 
-    return Tcp.scheduleWrite(vm, tcp.fd, bytes) catch {
+    return tcp.write(vm, ptr.*, bytes) catch {
+        vm.pushNil();
         vm.pushString("failed scheduling a write event");
-        return 1;
+        return 2;
     };
 }
 
 //*
 //* tcp:close() -> [ err, nil ]
-//* 
+//*
 fn wrap_TcpClose(vm: *Lua) i32 {
     vm.checkType(1, .userdata);
 
-    const tcp = vm.toUserdata(Tcp.Userdata, 1) catch unreachable;
+    const ptr = vm.toUserdata(xev.TCP, 1) catch unreachable;
 
-    return Tcp.scheduleClose(vm, tcp) catch {
+    return tcp.close(vm, ptr.*) catch {
         vm.pushString("failed scheduling a close event");
         return 1;
     };
@@ -109,8 +111,8 @@ pub fn exportTcp(vm: *Lua) void {
     vm.newTable();
 
     // TCP functions
-    vm.pushString("TcpConnect");
-    vm.pushFunction(lua.wrap(wrap_TcpConnect));
+    vm.pushString("TcpStream");
+    vm.pushFunction(lua.wrap(wrap_TcpStream));
     vm.rawSetTable(-3);
 
     vm.pushString("TcpListener");
